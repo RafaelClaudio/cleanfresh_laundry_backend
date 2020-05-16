@@ -58,7 +58,7 @@ class UserModel extends CI_Model
         $this->username = $request->username;
         $this->password = password_hash($request->password, PASSWORD_BCRYPT);
         $this->gender = $request->gender;
-        $this->activation_status = 0;
+        $this->activation_status = 1;
 
         //generate simple random code
         $set = '123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -66,12 +66,13 @@ class UserModel extends CI_Model
         $this->verif_code = $code;//md5(rand(1000,9999));
         
         if($this->db->insert($this->table, $this)){
-            $result = $this->db->get_where('data_user', ["username" => $this->username])->row();
-            $id = $result->id;
-            //$encrypted_id = md5($id);
-            $mailMan = new EmailVerification();
-            $result = $mailMan->send_mail($this, $id);
-            return $result;
+            // $result = $this->db->get_where('data_user', ["username" => $this->username])->row();
+            // $id = $result->id;
+            // //$encrypted_id = md5($id);
+            // $mailMan = new EmailVerification();
+            // $result = $mailMan->send_mail($this, $id);
+            //return $result;
+            return ['msg'=>'Berhasil, anda sudah terdaftar sebagai member','error'=>false];
         }
         return ['msg'=>'Gagal terdaftar','error'=>true];
     }
