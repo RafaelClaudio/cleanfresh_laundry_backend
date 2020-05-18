@@ -9,6 +9,8 @@ Class Order extends RestController{
         $this->load->model('OrderModel');
         $this->load->library('form_validation');
         $this->load->helper(['jwt','authorization']);
+        $this->load->library('Pdf');
+        include_once APPPATH . '/third_party/fpdf/fpdf.php';
     }
 
     public function index_get(){
@@ -144,6 +146,101 @@ Class Order extends RestController{
             //$this->response($response, $status);
             return $response;
         }
+    }
+
+    public function printInvoice_get($id = null){
+        $data = $this->verify_request();
+        $status = parent::HTTP_OK;
+        if($data['status'] == 401){
+            return $this->returnData($data['msg'],true);
+        }
+
+        $pdf = new FPDF('p','mm','A4');
+        // membuat halaman baru
+        $pdf->AddPage();
+    
+        // $dataTransaksi = null;
+        // $dataDetailTransaksi = null;
+        $order_data = null;
+        $user_data = null;
+        $price_cat_data = null;
+
+        $resultOrder = $this->db->get_where('data_order', ["id" => $id]);
+
+        if($resultOrder->num_rows()!=0){
+            $order_data = $resultOrder->row();
+            $resultUser = $this->db->get_where('data_user', ["username" => $order_data->username]);
+            $resultPrice = $this->db->get_where('data_pricelist', ["category" => $order_data->price_cat]);
+            if($resultUser->num_rows()!=0){
+                $user_data = $resultUser->row();
+            }
+            if($resultPrice->num_rows()!=0){
+                $price_cat_data = $resultPrice->row();
+            }
+        }else{
+            $this->returnData("ID Order not found!",true);
+        }
+
+        $created_at = date("j",strtotime($order_data->created_at))." ".
+                            date("F",strtotime($order_data->created_at))." ".
+                            date("Y",strtotime($order_data->created_at));
+        $printed_at = date("j")." ".date("F")." ".date("Y");
+
+        $pdf->Image(APPPATH.'controllers/InvoiceHeader/CleanFreshLaundryHeader.png',10,10,-235);
+        $pdf->Cell(10,50,'',0,1);// Memberikan space kebawah agar tidak terlalu rapat
+        $pdf->Cell(70);
+        $pdf->SetFont('Arial','B',14);
+        $pdf->Cell(50,7,'Laundry Order Invoice',0,1,'C');
+        $pdf->SetFont('Arial','B',10);
+        $pdf->Cell(190,8,'Invoice ID : '.$order_data->id,0,1, 'R');
+        $pdf->Cell(190,8,'Created At : '.$created_at,0,0, 'R');
+        $pdf->SetFont('Arial','B',10);
+        $pdf->Cell(10,10,'',0,1);
+        $pdf->Cell(45,6,'Member Data',0,1);
+        $pdf->SetFont('Arial','',10);
+        if($user_data!=null){
+            $pdf->Cell(45,6,'Name  ',0,0);
+            $pdf->Cell(45,6,':  '.$user_data->name,0,1);
+            $pdf->Cell(45,6,'Phone ',0,0);
+            $pdf->Cell(45,6,':  '.$user_data->phone,0,1);
+            $pdf->Cell(45,6,'Email  ',0,0);
+            $pdf->Cell(45,6,':  '.$user_data->email,0,1);
+        }
+        $pdf->Cell(45,6,'Username  ',0,0);
+        $pdf->Cell(45,6,':  '.$order_data->username,0,1);
+        $pdf->Cell(45,6,'Address  ',0,0);
+        $pdf->Cell(45,6,':  '.$order_data->address,0,1);
+        $pdf->Cell(10,10,'',0,1);
+        //$pdf->Cell(70,10);
+        $pdf->SetFont('Arial','B',12);
+        $pdf->Cell(50,7,'Your Order',0,1,'C');
+        $pdf->Cell(190,7,'_______________________________________________________________________________',0,1,'C');
+        $pdf->Cell(10,5,'',0,1);
+        $pdf->SetFont('Arial','B',10);
+        $pdf->Cell(60,6,'Price Category',1,0,'C');
+        if($price_cat_data!=null){
+            $pdf->Cell(30,6,'Duration (day)',1,0,'C');
+            $pdf->Cell(35,6,'Price/kg',1,0,'C');
+        }
+        $pdf->Cell(25,6,'Weight (kg)',1,0,'C');
+        $pdf->Cell(40,6,'Total Price',1,1,'C');
+        $pdf->SetFont('Arial','',10);    
+
+        $pdf->Cell(60,10,$order_data->price_cat,1,0,'L');
+        if($price_cat_data!=null){
+            $pdf->Cell(30,10,$price_cat_data->duration,1,0,'C');
+            $pdf->Cell(35,10,'Rp. '.$price_cat_data->price,1,0,'C');
+        }
+        $pdf->Cell(25,10,$order_data->weight,1,0,'C');
+        $pdf->Cell(40,10,'Rp. '.$order_data->price,1,1,'C');
+
+        $pdf->Cell(10,10,'',0,1);
+        $pdf->SetFont('Arial','B',12);
+        $pdf->Cell(190,7,'Thanks you for your order, we will wait for your next order',0,1,'C');
+        $pdf->Cell(10,20,'',0,1);
+        $pdf->SetFont('Arial','B',10);
+        $pdf->Cell(190,7,'Printed at '.$printed_at,0,1,'R');
+        $pdf->Output('CleanFreshLaundryInvoice'.$order_data->id.'.pdf','D');
     }
 }
 
